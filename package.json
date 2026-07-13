@@ -1,0 +1,12 @@
+{
+  "name": "electron-notification-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discord-like desktop notification prototype (Electron + WS + Next.js)",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix web install && npm --prefix electron install",
+    "server": "npm --prefix server start",
+    "web": "npm --prefix web run dev",
+    "electron": "npm --prefix electron run dev"
+  }
+}

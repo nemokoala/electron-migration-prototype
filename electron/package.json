@@ -1,0 +1,13 @@
+{
+  "name": "chat-electron-shell",
+  "version": "0.1.0",
+  "description": "Electron shell for the chat notification prototype",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "APP_URL=http://localhost:3000 electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}
