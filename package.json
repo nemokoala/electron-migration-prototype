@@ -5,6 +5,7 @@
   "description": "Discord-like desktop notification prototype (Electron + WS + Next.js)",
   "scripts": {
     "setup": "npm --prefix server install && npm --prefix web install && npm --prefix electron install",
+    "dev": "node scripts/dev.js",
     "server": "npm --prefix server start",
     "web": "npm --prefix web run dev",
     "electron": "npm --prefix electron run dev"

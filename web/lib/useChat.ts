@@ -160,6 +160,7 @@ export function useChat(): ChatState {
 
       if (data.type === "message") {
         const m = data.message;
+        console.log("message", m);
         setMessagesByRoom((prev) => ({
           ...prev,
           [m.roomId]: [...(prev[m.roomId] || []), m],

@@ -10,7 +10,7 @@ const {
 const { createTray, setTrayUnread } = require('./tray')
 
 // 개발: Next.js 개발 서버를 로드. 배포 환경에서는 배포된 URL을 가리킨다.
-const APP_URL = process.env.APP_URL || 'http://localhost:3000'
+const APP_URL = process.env.APP_URL || 'http://localhost:3010'
 
 // Windows: 네이티브 알림에 앱 이름/아이콘이 제대로 표시되려면 필수.
 app.setAppUserModelId('com.demo.chat')

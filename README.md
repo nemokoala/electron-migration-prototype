@@ -19,22 +19,28 @@ electron/  main+preload+tray — backgroundThrottling:false, 네이티브 알림
 # 0) 최초 1회: 의존성 설치
 npm run setup            # 루트에서 (server/web/electron 전부 설치)
 
-# 1) 데모 서버 (WS + 봇)
-npm run server           # ws://localhost:4000, 봇이 주기적으로 메시지 전송
-
-# 2) Next.js 웹
-npm run web              # http://localhost:3000
-
-# 3) Electron 앱 (2번이 떠 있어야 함)
-npm run electron         # localhost:3000 을 loadURL
+# ▶ 한 번에 실행 (서버 + 웹 + 일렉트론)
+npm run dev
 ```
 
-개별 실행:
+`npm run dev` 는 [scripts/dev.js](./scripts/dev.js) 오케스트레이터로:
+
+- 웹/서버 포트를 **비어있는 포트로 자동 선택** (3010이 사용 중이면 3011 …)
+- 서버 WS 주소를 웹에 주입해 자동으로 잡힌 포트끼리 연결
+- **웹이 준비된 뒤에** 일렉트론을 띄움 (빈 화면 로드 방지)
+- **Ctrl+C 한 번**으로 셋 다 정리
 
 ```bash
-cd server && npm start
-cd web && npm run dev
-cd electron && npm run dev
+WEB_PORT=3010 WS_PORT=4010 npm run dev   # 시작 포트 지정
+NO_ELECTRON=1 npm run dev                # 일렉트론 없이 서버+웹만
+```
+
+### 개별 실행 (터미널 3개)
+
+```bash
+npm run server           # ws://localhost:4000 (+봇)
+npm run web              # http://localhost:3010
+npm run electron         # localhost:3010 을 loadURL (web이 떠 있어야 함)
 ```
 
 ## 시연 시나리오
@@ -49,7 +55,7 @@ cd electron && npm run dev
 
 ### 웹(브라우저)에서 열면
 
-`http://localhost:3000` 을 브라우저로 열면 우측 상단 태그가 `WEB` 으로 뜬다.
+`http://localhost:3010` 을 브라우저로 열면 우측 상단 태그가 `WEB` 으로 뜬다.
 실제 서비스라면 이 경로가 FCM(Service Worker Push)이지만, 이 데모에선
 브라우저 `Notification` API 로만 best-effort 처리한다(자리표시).
 
