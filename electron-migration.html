@@ -1,699 +1,1386 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Next.js + PWA를 Electron으로 이식하기 — 결정 기록</title>
-<style>
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Next.js + PWA를 Electron으로 이식하기 — 결정 기록</title>
+    <style>
+      @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 
-  :root {
-    --ink: #12161c;
-    --ink-soft: #3a4149;
-    --ink-faint: #6b7480;
-    --paper: #f7f6f3;
-    --card: #ffffff;
-    --line: #e2e0da;
-    --line-strong: #c9c6bd;
-    /* signal palette: the "live connection" green vs the fallback/dead states */
-    --signal: #1a8f6b;        /* active WS / chosen path / verified */
-    --signal-soft: #e5f2ec;
-    --amber: #c07a1e;         /* caveat / tradeoff */
-    --amber-soft: #f6ecd9;
-    --stone: #8a8578;         /* rejected / inert / designed-not-built */
-    --stone-soft: #edeae3;
-    --rule: #d6d3ca;
-    --shadow: 0 1px 2px rgba(18,22,28,.04), 0 8px 24px rgba(18,22,28,.05);
-  }
+      :root {
+        --ink: #12161c;
+        --ink-soft: #3a4149;
+        --ink-faint: #6b7480;
+        --paper: #f7f6f3;
+        --card: #ffffff;
+        --line: #e2e0da;
+        --line-strong: #c9c6bd;
+        /* signal palette: the "live connection" green vs the fallback/dead states */
+        --signal: #1a8f6b; /* active WS / chosen path / verified */
+        --signal-soft: #e5f2ec;
+        --amber: #c07a1e; /* caveat / tradeoff */
+        --amber-soft: #f6ecd9;
+        --stone: #8a8578; /* rejected / inert / designed-not-built */
+        --stone-soft: #edeae3;
+        --rule: #d6d3ca;
+        --shadow:
+          0 1px 2px rgba(18, 22, 28, 0.04), 0 8px 24px rgba(18, 22, 28, 0.05);
+      }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-  html { scroll-behavior: smooth; }
+      html {
+        scroll-behavior: smooth;
+      }
 
-  body {
-    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-    background: var(--paper);
-    color: var(--ink);
-    line-height: 1.7;
-    font-weight: 400;
-    -webkit-font-smoothing: antialiased;
-    letter-spacing: -0.003em;
-  }
+      body {
+        font-family:
+          "Pretendard Variable",
+          Pretendard,
+          -apple-system,
+          BlinkMacSystemFont,
+          system-ui,
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+        line-height: 1.7;
+        font-weight: 400;
+        -webkit-font-smoothing: antialiased;
+        letter-spacing: -0.003em;
+      }
 
-  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px; }
+      .wrap {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 0 28px;
+      }
 
-  /* ---- header ---- */
-  header {
-    padding: 72px 0 40px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--signal);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .eyebrow::before {
-    content: "";
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--signal);
-    box-shadow: 0 0 0 0 rgba(26,143,107,.5);
-    animation: pulse 2.4s infinite;
-  }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(26,143,107,.45); }
-    70% { box-shadow: 0 0 0 8px rgba(26,143,107,0); }
-    100% { box-shadow: 0 0 0 0 rgba(26,143,107,0); }
-  }
-  h1 {
-    font-size: 40px;
-    font-weight: 600;
-    line-height: 1.18;
-    letter-spacing: -0.02em;
-    margin-bottom: 18px;
-  }
-  .lede {
-    font-size: 17px;
-    color: var(--ink-soft);
-    max-width: 640px;
-    font-weight: 300;
-  }
-  .lede strong { font-weight: 600; color: var(--ink); }
+      /* ---- header ---- */
+      header {
+        padding: 72px 0 40px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .eyebrow {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--signal);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 0 0 rgba(26, 143, 107, 0.5);
+        animation: pulse 2.4s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(26, 143, 107, 0.45);
+        }
+        70% {
+          box-shadow: 0 0 0 8px rgba(26, 143, 107, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(26, 143, 107, 0);
+        }
+      }
+      h1 {
+        font-size: 40px;
+        font-weight: 600;
+        line-height: 1.18;
+        letter-spacing: -0.02em;
+        margin-bottom: 18px;
+      }
+      .lede {
+        font-size: 17px;
+        color: var(--ink-soft);
+        max-width: 640px;
+        font-weight: 300;
+      }
+      .lede strong {
+        font-weight: 600;
+        color: var(--ink);
+      }
 
-  .meta {
-    margin-top: 28px;
-    display: flex;
-    gap: 28px;
-    flex-wrap: wrap;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12.5px;
-    color: var(--ink-faint);
-  }
-  .meta span strong { color: var(--ink-soft); font-weight: 600; }
+      .meta {
+        margin-top: 28px;
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12.5px;
+        color: var(--ink-faint);
+      }
+      .meta span strong {
+        color: var(--ink-soft);
+        font-weight: 600;
+      }
 
-  /* ---- section ---- */
-  section { padding: 52px 0; border-bottom: 1px solid var(--rule); }
-  section:last-of-type { border-bottom: none; }
+      /* ---- section ---- */
+      section {
+        padding: 52px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      section:last-of-type {
+        border-bottom: none;
+      }
 
-  .sec-num {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--signal);
-    letter-spacing: 0.1em;
-  }
-  h2 {
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    margin: 6px 0 22px;
-    line-height: 1.25;
-  }
-  h3 {
-    font-size: 17px;
-    font-weight: 600;
-    margin: 30px 0 12px;
-    color: var(--ink);
-  }
-  p { margin-bottom: 15px; color: var(--ink-soft); }
-  p strong, li strong { color: var(--ink); font-weight: 600; }
-  .accent { color: var(--signal); font-weight: 600; }
+      .sec-num {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--signal);
+        letter-spacing: 0.1em;
+      }
+      h2 {
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 6px 0 22px;
+        line-height: 1.25;
+      }
+      h3 {
+        font-size: 17px;
+        font-weight: 600;
+        margin: 30px 0 12px;
+        color: var(--ink);
+      }
+      p {
+        margin-bottom: 15px;
+        color: var(--ink-soft);
+      }
+      p strong,
+      li strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .accent {
+        color: var(--signal);
+        font-weight: 600;
+      }
 
-  /* pull quote / thesis */
-  .thesis {
-    border-left: 3px solid var(--signal);
-    padding: 4px 0 4px 22px;
-    margin: 24px 0;
-    font-size: 18px;
-    font-weight: 400;
-    color: var(--ink);
-    line-height: 1.55;
-  }
+      /* pull quote / thesis */
+      .thesis {
+        border-left: 3px solid var(--signal);
+        padding: 4px 0 4px 22px;
+        margin: 24px 0;
+        font-size: 18px;
+        font-weight: 400;
+        color: var(--ink);
+        line-height: 1.55;
+      }
 
-  ul, ol { margin: 4px 0 18px; padding-left: 0; list-style: none; }
-  li {
-    position: relative;
-    padding-left: 22px;
-    margin-bottom: 9px;
-    color: var(--ink-soft);
-  }
-  li::before {
-    content: "";
-    position: absolute;
-    left: 2px; top: 11px;
-    width: 6px; height: 6px;
-    border-radius: 1px;
-    background: var(--line-strong);
-  }
-  li.yes::before { background: var(--signal); }
-  li.no::before { background: var(--stone); transform: rotate(45deg); }
-  li.q::before { background: var(--amber); border-radius: 50%; }
+      ul,
+      ol {
+        margin: 4px 0 18px;
+        padding-left: 0;
+        list-style: none;
+      }
+      li {
+        position: relative;
+        padding-left: 22px;
+        margin-bottom: 9px;
+        color: var(--ink-soft);
+      }
+      li::before {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 11px;
+        width: 6px;
+        height: 6px;
+        border-radius: 1px;
+        background: var(--line-strong);
+      }
+      li.yes::before {
+        background: var(--signal);
+      }
+      li.no::before {
+        background: var(--stone);
+        transform: rotate(45deg);
+      }
+      li.q::before {
+        background: var(--amber);
+        border-radius: 50%;
+      }
 
-  /* diagram frame */
-  figure {
-    margin: 30px 0;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 30px 26px 22px;
-    box-shadow: var(--shadow);
-  }
-  figure svg { width: 100%; height: auto; display: block; }
-  figcaption {
-    margin-top: 18px;
-    padding-top: 15px;
-    border-top: 1px dashed var(--line-strong);
-    font-size: 13px;
-    color: var(--ink-faint);
-    font-family: 'Pretendard Variable', Pretendard, sans-serif;
-  }
-  figcaption strong { color: var(--ink-soft); }
+      /* diagram frame */
+      figure {
+        margin: 30px 0;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 30px 26px 22px;
+        box-shadow: var(--shadow);
+      }
+      figure svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      figcaption {
+        margin-top: 18px;
+        padding-top: 15px;
+        border-top: 1px dashed var(--line-strong);
+        font-size: 13px;
+        color: var(--ink-faint);
+        font-family: "Pretendard Variable", Pretendard, sans-serif;
+      }
+      figcaption strong {
+        color: var(--ink-soft);
+      }
 
-  /* comparison table */
-  .tbl-wrap { margin: 26px 0; overflow-x: auto; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  th, td { text-align: left; padding: 14px 16px; vertical-align: top; }
-  thead th {
-    background: #fbfaf8;
-    font-weight: 600;
-    color: var(--ink);
-    font-size: 12.5px;
-    letter-spacing: 0.02em;
-    border-bottom: 1px solid var(--line-strong);
-  }
-  tbody td { border-bottom: 1px solid var(--line); color: var(--ink-soft); }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr.chosen td { background: var(--signal-soft); }
-  tbody tr.chosen td:first-child { color: var(--ink); font-weight: 600; }
-  .tag {
-    display: inline-block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-  }
-  .tag.pick { background: var(--signal); color: #fff; }
-  .tag.drop { background: var(--stone-soft); color: var(--stone); }
-  .tag.care { background: var(--amber-soft); color: var(--amber); }
-  .tag.done { background: var(--signal); color: #fff; }
-  .tag.plan { background: var(--stone-soft); color: var(--stone); border: 1px solid var(--line-strong); }
-  .ck { color: var(--signal); font-weight: 700; }
-  .x  { color: var(--stone); font-weight: 700; }
+      /* comparison table */
+      .tbl-wrap {
+        margin: 26px 0;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 14px 16px;
+        vertical-align: top;
+      }
+      thead th {
+        background: #fbfaf8;
+        font-weight: 600;
+        color: var(--ink);
+        font-size: 12.5px;
+        letter-spacing: 0.02em;
+        border-bottom: 1px solid var(--line-strong);
+      }
+      tbody td {
+        border-bottom: 1px solid var(--line);
+        color: var(--ink-soft);
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr.chosen td {
+        background: var(--signal-soft);
+      }
+      tbody tr.chosen td:first-child {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .tag {
+        display: inline-block;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 20px;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+      }
+      .tag.pick {
+        background: var(--signal);
+        color: #fff;
+      }
+      .tag.drop {
+        background: var(--stone-soft);
+        color: var(--stone);
+      }
+      .tag.care {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .tag.done {
+        background: var(--signal);
+        color: #fff;
+      }
+      .tag.plan {
+        background: var(--stone-soft);
+        color: var(--stone);
+        border: 1px solid var(--line-strong);
+      }
+      .ck {
+        color: var(--signal);
+        font-weight: 700;
+      }
+      .x {
+        color: var(--stone);
+        font-weight: 700;
+      }
 
-  /* legend */
-  .legend {
-    display: flex; flex-wrap: wrap; gap: 10px 22px;
-    margin: 20px 0 4px;
-    font-size: 13px; color: var(--ink-faint);
-    font-family: 'IBM Plex Mono', monospace;
-  }
-  .legend span { display: inline-flex; align-items: center; gap: 8px; }
-  .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-  .swatch.done { background: var(--signal); }
-  .swatch.plan { background: var(--stone); transform: rotate(45deg); }
+      /* legend */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 22px;
+        margin: 20px 0 4px;
+        font-size: 13px;
+        color: var(--ink-faint);
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+      .swatch.done {
+        background: var(--signal);
+      }
+      .swatch.plan {
+        background: var(--stone);
+        transform: rotate(45deg);
+      }
 
-  /* callout */
-  .note {
-    background: var(--amber-soft);
-    border: 1px solid #ecdcbc;
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin: 22px 0;
-    font-size: 14px;
-    color: #6d4d15;
-  }
-  .note strong { color: #533a0f; }
-  .note .lbl {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--amber);
-    display: block;
-    margin-bottom: 6px;
-  }
-  /* green "correction" callout */
-  .note.good {
-    background: var(--signal-soft);
-    border-color: #bfe3d4;
-    color: #155f47;
-  }
-  .note.good strong { color: #0f4a37; }
-  .note.good .lbl { color: var(--signal); }
+      /* callout */
+      .note {
+        background: var(--amber-soft);
+        border: 1px solid #ecdcbc;
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin: 22px 0;
+        font-size: 14px;
+        color: #6d4d15;
+      }
+      .note strong {
+        color: #533a0f;
+      }
+      .note .lbl {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--amber);
+        display: block;
+        margin-bottom: 6px;
+      }
+      /* green "correction" callout */
+      .note.good {
+        background: var(--signal-soft);
+        border-color: #bfe3d4;
+        color: #155f47;
+      }
+      .note.good strong {
+        color: #0f4a37;
+      }
+      .note.good .lbl {
+        color: var(--signal);
+      }
 
-  code {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.88em;
-    background: var(--stone-soft);
-    padding: 1.5px 6px;
-    border-radius: 5px;
-    color: var(--ink);
-  }
+      code {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.88em;
+        background: var(--stone-soft);
+        padding: 1.5px 6px;
+        border-radius: 5px;
+        color: var(--ink);
+      }
 
-  /* chain steps */
-  .chain { margin: 24px 0; }
-  .chain-step {
-    display: flex;
-    gap: 16px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .chain-step:last-child { border-bottom: none; }
-  .chain-n {
-    flex-shrink: 0;
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    background: var(--signal-soft);
-    color: var(--signal);
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 600;
-    font-size: 13px;
-    display: grid; place-items: center;
-    border: 1px solid #c7e5d8;
-  }
-  .chain-body { flex: 1; }
-  .chain-body b { color: var(--ink); font-weight: 600; display: block; font-size: 14.5px; }
-  .chain-body span { color: var(--ink-faint); font-size: 13.5px; }
+      /* chain steps */
+      .chain {
+        margin: 24px 0;
+      }
+      .chain-step {
+        display: flex;
+        gap: 16px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .chain-step:last-child {
+        border-bottom: none;
+      }
+      .chain-n {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--signal-soft);
+        color: var(--signal);
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 600;
+        font-size: 13px;
+        display: grid;
+        place-items: center;
+        border: 1px solid #c7e5d8;
+      }
+      .chain-body {
+        flex: 1;
+      }
+      .chain-body b {
+        color: var(--ink);
+        font-weight: 600;
+        display: block;
+        font-size: 14.5px;
+      }
+      .chain-body span {
+        color: var(--ink-faint);
+        font-size: 13.5px;
+      }
 
-  footer {
-    padding: 40px 0 64px;
-    color: var(--ink-faint);
-    font-size: 13px;
-    font-family: 'IBM Plex Mono', monospace;
-  }
+      footer {
+        padding: 40px 0 64px;
+        color: var(--ink-faint);
+        font-size: 13px;
+        font-family: "IBM Plex Mono", monospace;
+      }
 
-  @media (max-width: 620px) {
-    h1 { font-size: 30px; }
-    h2 { font-size: 22px; }
-    .wrap { padding: 0 20px; }
-    header { padding: 48px 0 32px; }
-  }
+      @media (max-width: 620px) {
+        h1 {
+          font-size: 30px;
+        }
+        h2 {
+          font-size: 22px;
+        }
+        .wrap {
+          padding: 0 20px;
+        }
+        header {
+          padding: 48px 0 32px;
+        }
+      }
 
-  @media (prefers-reduced-motion: reduce) {
-    .eyebrow::before { animation: none; }
-    html { scroll-behavior: auto; }
-  }
-</style>
-</head>
-<body>
-<div class="wrap">
+      @media (prefers-reduced-motion: reduce) {
+        .eyebrow::before {
+          animation: none;
+        }
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Web → Desktop · Migration Notes</div>
+        <h1>기존 Next.js + PWA를<br />Electron으로 이식하기</h1>
+        <p class="lede">
+          JD 주업무 = 웹 제품을 Electron 등 데스크톱으로 확장. Joint 스택을 보면
+          <strong>Next.js + PWA</strong> → 웹 알림은
+          <strong>Service Worker + FCM</strong> 경로일 것으로 추정. 그래서 출발
+          질문은 하나였음 —
+          <strong
+            >이 웹을 Electron으로 그냥 감싸면, 그 알림이 그대로
+            동작할까?</strong
+          >
+          이걸 검증하려고 프로토타입을 만들었음. (정확한 전략은 Joint 실제 구조
+          확인 필요)
+        </p>
+        <div class="meta">
+          <span><strong>스택</strong> &nbsp;Next.js · Electron · Node(ws)</span>
+          <span
+            ><strong>관점</strong> &nbsp;PWA 래핑 가설 → 프로토타입 검증</span
+          >
+          <span
+            ><strong>결론</strong> &nbsp;URL 로드 셸 + WS 알림, 나머지는 열린
+            질문</span
+          >
+        </div>
+      </header>
 
-  <header>
-    <div class="eyebrow">Web → Desktop · Migration Notes</div>
-    <h1>기존 Next.js + PWA를<br>Electron으로 이식하기</h1>
-    <p class="lede">JD 주업무 = 웹 제품을 Electron 등 데스크톱으로 확장. Joint 스택을 보면 <strong>Next.js + PWA</strong> → 웹 알림은 <strong>Service Worker + FCM</strong> 경로일 것으로 추정. 그래서 출발 질문은 하나였음 — <strong>이 웹을 Electron으로 그냥 감싸면, 그 알림이 그대로 동작할까?</strong> 이걸 검증하려고 프로토타입을 만들었음. (정확한 전략은 Joint 실제 구조 확인 후 확정.)</p>
-    <div class="meta">
-      <span><strong>스택</strong> &nbsp;Next.js · Electron · Node(ws)</span>
-      <span><strong>관점</strong> &nbsp;PWA 래핑 가설 → 프로토타입 검증</span>
-      <span><strong>결론</strong> &nbsp;URL 로드 셸 + WS 알림, 나머지는 열린 질문</span>
+      <!-- 1 -->
+      <section id="start">
+        <div class="sec-num">01 / 출발점</div>
+        <h2>출발점 — Next.js PWA를 Electron으로 그냥 감싸면 될까?</h2>
+        <ul>
+          <li>
+            <strong>주업무 = 웹 제품을 Electron 등 데스크톱으로 확장</strong>
+            (JD 기준).
+          </li>
+          <li>
+            <strong>Joint 스택 관찰</strong> — Next.js + PWA. 그럼 웹 알림은
+            <strong>Service Worker + FCM</strong> 경로일 것으로 추정 (표준
+            웹에서 사실상 유일한 길).
+          </li>
+          <li>
+            <strong>웹(PWA)의 한계</strong> — 브라우저 샌드박스 안이라 OS 통합이
+            제한적: 트레이 상주 · 네이티브 알림 · 백그라운드 상시 연결 유지가
+            어려움 → 데스크톱으로 확장하는 이유.
+          </li>
+        </ul>
+
+        <div class="thesis">
+          그래서 프로토타입의 출발 질문은 하나 —
+          <span class="accent"
+            >"기존 웹을 Electron으로 그냥 감싸면, SW+FCM으로 하던 알림이 그대로
+            동작할까?"</span
+          >
+        </div>
+
+        <p>
+          이건 가상 시스템 설계가 아니라
+          <strong>이미 있는 웹을 데스크톱으로 옮기는 실무 그 자체</strong>. 이식
+          전체로 보면 답할 게 셋인데, 그중
+          <strong>가장 먼저·확실히 막히는 알림부터</strong> 검증했음.
+        </p>
+
+        <ul>
+          <li class="q">
+            <strong>웹을 어떻게 로드?</strong> — 배포 URL(<code>loadURL</code>)
+            vs 로컬 번들(<code>loadFile</code>). 첫 갈림길, 나머지를 규정.
+          </li>
+          <li class="q">
+            <strong>무엇을 네이티브로?</strong> — 웹에 둘 것 vs
+            셸(트레이·알림·창 관리)이 맡을 것의 경계.
+          </li>
+          <li class="q">
+            <strong>세션 · 오프라인 · 배포는?</strong> — 원격 URL 래핑 시 새로
+            생기는 문제(인증 유지, 오프라인 화면, 서명·자동 업데이트).
+          </li>
+        </ul>
+      </section>
+
+      <!-- 2 -->
+      <section id="loading">
+        <div class="sec-num">02 / 첫 결정</div>
+        <h2>웹을 어떻게 로드하나 — URL 로드 vs 로컬 번들</h2>
+        <p>
+          셸이 웹을 띄우는 방식 = 두 갈래. 이 선택이 SSR 가용 · 배포 횟수 ·
+          오프라인 여부를 전부 규정 → <strong>이식의 첫 결정</strong>.
+        </p>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 22%">기준</th>
+                <th style="width: 39%">로컬 번들 · <code>loadFile</code></th>
+                <th style="width: 39%">원격 URL · <code>loadURL</code></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>렌더링 모델</td>
+                <td>
+                  Next.js <code>output:'export'</code> (SSG)
+                  <strong>만</strong> 가능
+                </td>
+                <td>
+                  배포된 웹을 그대로 → <strong>SSR·미들웨어 살아있음</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>SSR / API / 미들웨어</td>
+                <td><span class="x">✕</span> 서버 기능 사용 불가</td>
+                <td><span class="ck">✓</span> 기존 웹과 동일하게 동작</td>
+              </tr>
+              <tr>
+                <td>배포</td>
+                <td>웹 배포 + 앱 재빌드·재배포 <strong>이중 관리</strong></td>
+                <td>웹 배포 <strong>1회</strong> → 데스크톱도 자동 최신화</td>
+              </tr>
+              <tr>
+                <td>오프라인</td>
+                <td><span class="ck">✓</span> 번들이 로컬에 있어 강함</td>
+                <td>
+                  <span class="x">△</span> 흰 화면 위험 — 기존 SW 캐싱으로 완화
+                </td>
+              </tr>
+              <tr class="chosen">
+                <td>Joint 적합성</td>
+                <td>제품을 export 제약 안으로 욱여넣어야 함</td>
+                <td>
+                  <strong>이미 PWA 서비스 + AWS 배포 존재 → 자연스러움</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p><strong>Joint 기준 — 이 결정은 사실상 정해져 있음.</strong></p>
+        <ul>
+          <li>
+            이미 웹을 <strong>PWA로 배포·서비스 중</strong> → 셸은 그 배포
+            주소를 띄우는 <strong>크롬리스 창</strong>이면 끝.
+          </li>
+          <li>
+            잘 돌아가는 웹을 정적 번들(<code>output:'export'</code>)로 다시 마는
+            건 손해 — SSR·API 버림 +
+            <strong>웹 배포·데스크톱 번들 이중 관리</strong> 자초.
+          </li>
+          <li>
+            웹 1회 배포 → 데스크톱 자동 최신.
+            <strong>이 이점을 굳이 버릴 이유 없음.</strong>
+          </li>
+          <li>슬랙·디스코드 데스크톱도 이 계열.</li>
+        </ul>
+
+        <p>
+          <strong>단, URL 로드도 공짜는 아님</strong> — 새로 생기는 트레이드오프
+          (직접 겪은 게 아니라 조사한 것, 대부분 미구현 · 향후 과제):
+        </p>
+        <ul>
+          <li class="no">
+            <strong>오프라인</strong> — 원칙상 연결 끊기면 빈 창. 단,
+            <strong
+              >기존 PWA의 서비스 워커 오프라인 캐싱이 Electron(보안
+              컨텍스트)에서도 동작</strong
+            >
+            → 프로덕션에선 상당 부분 자동 커버. 단서: 최초 실행은 온라인 필요 +
+            세션 영속. (이 데모엔 SW 미설정.)
+          </li>
+          <li class="no">
+            <strong>네이티브 통합 깊이</strong> — 단순 래핑에 그치면 "그냥 웹뷰
+            아니냐"는 지적을 받음. 트레이·알림·창 관리 등 셸이 실제로 값을
+            더해야 함.
+          </li>
+          <li class="no">
+            <strong>세션 · 쿠키 유지</strong> — 원격 URL을 감쌀 때 로그인 세션을
+            어떻게 유지·보안할지(파티션, 쿠키 정책).
+          </li>
+          <li class="no">
+            <strong>preload API 버전 정합성</strong> — 웹은 자주 배포되는데
+            셸(preload)은 사용자가 업데이트해야 함. 둘 사이 API 계약이 어긋나면
+            깨짐.
+          </li>
+        </ul>
+
+        <div class="note">
+          <span class="lbl">이 프로토타입에서 실제로 한 것</span>
+          셸이 <code>mainWindow.loadURL(APP_URL)</code>로 웹을 띄움.<br />
+          · 개발: <code>APP_URL = http://localhost:3010</code> (Next 개발
+          서버)<br />
+          · 프로덕션: 이 값을 <strong>배포 웹 주소로 교체</strong>만 하면 됨<br />
+          위 트레이드오프(오프라인·세션 등)는
+          <strong>인지만, 구현 안 함</strong> — 이식의 다음 단계.
+        </div>
+      </section>
+
+      <!-- 3 -->
+      <section id="notify">
+        <div class="sec-num">03 / 대표 문제</div>
+        <h2>이식하면 가장 먼저 막히는 것 = 알림</h2>
+        <p>
+          URL 셸을 만들면 곧바로 부딪히는 게 <strong>알림</strong> — 웹에서
+          당연하던 푸시가 Electron 안에선 그대로 안 됨. 그래서
+          <strong>이식의 대표 문제</strong>로 잡고, 경로별 트레이드오프를 따져
+          하나 선택 + 프로토타입까지.
+        </p>
+
+        <h3>표준 Web Push는 Electron에서 경로가 막힌다</h3>
+        <ul>
+          <li>
+            Electron = Chromium 전체 아님 → 렌더링 핵심부(<strong
+              >Chromium Content</strong
+            >)만 빌드.
+          </li>
+          <li>Google 서비스 계층 빠짐 → <strong>Push Service 없음.</strong></li>
+          <li>
+            Firebase SDK로 <code>PushManager</code> 구독 시도 →
+            <code>push service not available</code>.
+          </li>
+        </ul>
+        <div class="note good">
+          <span class="lbl">정확히 말하면</span>
+          "Electron에서 FCM을 못 받음"(X) →
+          <strong>"표준 Web Push 경로(SW + PushManager)로는 못 받음"(O)</strong
+          >. 이 구분이 다음 선택지로 이어짐.
+        </div>
+
+        <h3>우회로는 있지만, 그래서 더 배제했다</h3>
+        <ul>
+          <li>
+            <code>electron-push-receiver</code> = 브라우저 PushManager 우회,
+            <strong>Node가 FCM 등록·롱커넥션(MCS) 직접 구현</strong> (안드로이드
+            방식 흉내).
+          </li>
+          <li><strong>장점</strong> — 앱이 꺼져도 알림.</li>
+          <li>
+            <strong>단점</strong> — 리버스 엔지니어링된 비공식 프로토콜. 원본
+            등록 엔드포인트 <strong>2024.6 제거로 깨짐</strong>, 포크들도
+            "실험용으로만" 자체 경고.
+          </li>
+          <li>
+            <strong>판단 — 프로덕션 알림 인프라로 리스크 과다 → 배제.</strong>
+          </li>
+        </ul>
+
+        <h3>데스크톱은 트레이 상주 + WebSocket이면 충분하다</h3>
+        <p>
+          근거 = 레퍼런스 앱의 실제 동작.
+          <strong
+            >슬랙·디스코드도 트레이 상주 시만 알림, 완전 종료 시 무알림</strong
+          >
+          — 결함이 아니라 의도된 설계. 모바일과 데스크톱은 전제가 다름.
+        </p>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 16%">환경</th>
+                <th style="width: 42%">전제</th>
+                <th style="width: 42%">알림에 필요한 것</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>모바일</strong></td>
+                <td>OS가 앱을 수시로 종료 (메모리 관리)</td>
+                <td>앱과 독립된 <strong>OS 푸시(FCM·APNs) 필수</strong></td>
+              </tr>
+              <tr class="chosen">
+                <td><strong>데스크톱</strong></td>
+                <td>
+                  사용자가 Quit하기 전엔 프로세스 유지, 트레이 상주가 자연스러움
+                </td>
+                <td><strong>상시 WS 연결만으로 충분</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          즉 "앱 꺼져도 알림"용 OS 푸시는 데스크톱 현 단계엔
+          <strong>과한 설계</strong>. 완전 종료 무알림 = 슬랙·디코와 동일한 의도
+          → <strong>표준 WebSocket 경로 선택</strong>. 표준 의존성만 쓰니 비공식
+          프로토콜 리스크도 없음.
+        </p>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 28%">경로</th>
+                <th style="width: 46%">성격</th>
+                <th style="width: 26%">판정</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="chosen">
+                <td>WebSocket + IPC</td>
+                <td>
+                  렌더러가 WS 수신 → IPC로 메인 → 네이티브 알림. 표준 의존성만
+                  사용.
+                </td>
+                <td><span class="tag pick">선택</span></td>
+              </tr>
+              <tr>
+                <td>표준 Web Push (SW+FCM)</td>
+                <td>Electron에 Push Service 부재 → 경로 자체가 막힘.</td>
+                <td><span class="tag drop">불가</span></td>
+              </tr>
+              <tr>
+                <td>electron-push-receiver</td>
+                <td>
+                  Node가 FCM·MCS 직접 구현. 비공식 리버스 프로토콜, 2024.6 이후
+                  불안정.
+                </td>
+                <td><span class="tag drop">배제</span></td>
+              </tr>
+              <tr>
+                <td>OS 네이티브 푸시 (WNS·APNs)</td>
+                <td>"앱 꺼져도 알림"의 정석. 지금 단계엔 과함.</td>
+                <td><span class="tag care">향후</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section id="arch">
+        <div class="sec-num">04 / 구현</div>
+        <h2>프로토타입 아키텍처와 실제 동작</h2>
+        <p>
+          실제 동작하는 데모로 구현. 셸이 웹 UI를 <code>loadURL</code>로 띄우고,
+          렌더러가 받은 WS 메시지 →
+          <strong>preload 브리지(contextBridge) → 메인 프로세스</strong> →
+          네이티브 알림.
+        </p>
+
+        <figure>
+          <!-- flow diagram -->
+          <svg
+            viewBox="0 0 720 340"
+            xmlns="http://www.w3.org/2000/svg"
+            font-family="Pretendard Variable, Pretendard, sans-serif"
+          >
+            <defs>
+              <marker
+                id="arrow"
+                markerWidth="9"
+                markerHeight="9"
+                refX="7"
+                refY="4.5"
+                orient="auto"
+              >
+                <path
+                  d="M1,1 L8,4.5 L1,8"
+                  fill="none"
+                  stroke="#1a8f6b"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </marker>
+              <marker
+                id="arrowStone"
+                markerWidth="9"
+                markerHeight="9"
+                refX="7"
+                refY="4.5"
+                orient="auto"
+              >
+                <path
+                  d="M1,1 L8,4.5 L1,8"
+                  fill="none"
+                  stroke="#8a8578"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </marker>
+            </defs>
+
+            <!-- Server -->
+            <rect
+              x="20"
+              y="20"
+              width="180"
+              height="86"
+              rx="10"
+              fill="#ffffff"
+              stroke="#c9c6bd"
+              stroke-width="1.2"
+            />
+            <text
+              x="110"
+              y="46"
+              text-anchor="middle"
+              font-size="13.5"
+              font-weight="600"
+              fill="#12161c"
+            >
+              데모 서버
+            </text>
+            <text
+              x="110"
+              y="66"
+              text-anchor="middle"
+              font-size="11"
+              fill="#6b7480"
+            >
+              Node + ws
+            </text>
+            <text
+              x="110"
+              y="84"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#8a8578"
+            >
+              room · presence · 브로드캐스트
+            </text>
+
+            <!-- WS arrow down -->
+            <line
+              x1="110"
+              y1="106"
+              x2="110"
+              y2="150"
+              stroke="#1a8f6b"
+              stroke-width="1.8"
+              marker-end="url(#arrow)"
+            />
+            <text
+              x="122"
+              y="132"
+              font-size="10.5"
+              font-family="IBM Plex Mono, monospace"
+              fill="#1a8f6b"
+            >
+              WebSocket
+            </text>
+
+            <!-- Renderer -->
+            <rect
+              x="20"
+              y="152"
+              width="180"
+              height="96"
+              rx="10"
+              fill="#e5f2ec"
+              stroke="#1a8f6b"
+              stroke-width="1.3"
+            />
+            <text
+              x="110"
+              y="176"
+              text-anchor="middle"
+              font-size="13.5"
+              font-weight="600"
+              fill="#12161c"
+            >
+              렌더러 (Next.js)
+            </text>
+            <text
+              x="110"
+              y="195"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              웹 UI · loadURL(:3010)
+            </text>
+            <text
+              x="110"
+              y="212"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              WS 수신 · 렌더링
+            </text>
+            <text
+              x="110"
+              y="229"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              focus/active-room 판단
+            </text>
+
+            <!-- IPC arrow right -->
+            <line
+              x1="200"
+              y1="200"
+              x2="270"
+              y2="200"
+              stroke="#1a8f6b"
+              stroke-width="1.8"
+              marker-end="url(#arrow)"
+            />
+            <text
+              x="235"
+              y="190"
+              text-anchor="middle"
+              font-size="10.5"
+              font-family="IBM Plex Mono, monospace"
+              fill="#1a8f6b"
+            >
+              IPC
+            </text>
+            <text
+              x="235"
+              y="216"
+              text-anchor="middle"
+              font-size="9"
+              fill="#8a8578"
+            >
+              preload
+            </text>
+
+            <!-- Main -->
+            <rect
+              x="272"
+              y="152"
+              width="180"
+              height="96"
+              rx="10"
+              fill="#ffffff"
+              stroke="#c9c6bd"
+              stroke-width="1.2"
+            />
+            <text
+              x="362"
+              y="176"
+              text-anchor="middle"
+              font-size="13.5"
+              font-weight="600"
+              fill="#12161c"
+            >
+              메인 (Electron)
+            </text>
+            <text
+              x="362"
+              y="195"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              트레이 상주 · close→hide
+            </text>
+            <text
+              x="362"
+              y="212"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              backgroundThrottling:false
+            </text>
+            <text
+              x="362"
+              y="229"
+              text-anchor="middle"
+              font-size="10.5"
+              fill="#3a4149"
+            >
+              Notification 생성
+            </text>
+
+            <!-- Notification arrow -->
+            <line
+              x1="452"
+              y1="200"
+              x2="522"
+              y2="200"
+              stroke="#1a8f6b"
+              stroke-width="1.8"
+              marker-end="url(#arrow)"
+            />
+            <!-- Native notification -->
+            <rect
+              x="524"
+              y="164"
+              width="176"
+              height="72"
+              rx="10"
+              fill="#12161c"
+            />
+            <circle cx="548" cy="192" r="8" fill="#1a8f6b" />
+            <text
+              x="566"
+              y="188"
+              font-size="11.5"
+              font-weight="600"
+              fill="#ffffff"
+            >
+              Joint
+            </text>
+            <text x="566" y="205" font-size="10" fill="#b7c0c9">
+              새 메시지 · 거래처 A
+            </text>
+            <text
+              x="612"
+              y="228"
+              text-anchor="middle"
+              font-size="9.5"
+              fill="#8a8578"
+            >
+              OS 네이티브 알림
+            </text>
+
+            <!-- click routing back -->
+            <path
+              d="M612,164 C612,104 400,102 364,150"
+              fill="none"
+              stroke="#8a8578"
+              stroke-width="1.4"
+              stroke-dasharray="4 4"
+              marker-end="url(#arrowStone)"
+            />
+            <text
+              x="474"
+              y="96"
+              text-anchor="middle"
+              font-size="10"
+              fill="#8a8578"
+            >
+              클릭 → 창 복원 · 해당 방으로 라우팅 (open-room)
+            </text>
+
+            <!-- focus loop note -->
+            <path
+              d="M110,248 C110,280 300,286 340,258"
+              fill="none"
+              stroke="#8a8578"
+              stroke-width="1.3"
+              stroke-dasharray="4 4"
+            />
+            <text
+              x="230"
+              y="286"
+              text-anchor="middle"
+              font-size="9.5"
+              fill="#8a8578"
+            >
+              해당 방 보는 중이면 알림 생략 (중복 방지)
+            </text>
+          </svg>
+          <figcaption>
+            <strong>흐름:</strong> 서버가 WS로 브로드캐스트 → 렌더러가 수신하고
+            "지금 이 방을 보고 있는지" 판단 → 아니면 IPC로 메인에 넘겨 네이티브
+            알림 → 클릭하면 창 복원 후 해당 방으로 라우팅.
+          </figcaption>
+        </figure>
+
+        <p>
+          <strong>핵심 = 직접 구현·동작 확인한 것</strong>과
+          <strong>조사·설계만 한 것</strong>을 섞지 않기. 아래가 그 구분.
+        </p>
+
+        <div class="legend">
+          <span><i class="swatch done"></i> 직접 구현 · 동작 확인됨</span>
+          <span><i class="swatch plan"></i> 설계·인지만 함 (미구현)</span>
+        </div>
+
+        <h3>
+          직접 구현하고 시연으로 확인한 것 <span class="tag done">확인됨</span>
+        </h3>
+        <ul>
+          <li class="yes">
+            <strong>최소화·트레이 상태에서도 WS 유지 → 네이티브 알림</strong>
+            (<code>backgroundThrottling:false</code>로 백그라운드 freeze 방지)
+          </li>
+          <li class="yes">
+            <strong>다른 방 메시지</strong> → 포커스 중이어도 알림 + unread를
+            트레이 아이콘·독 배지·문서 제목에 반영
+          </li>
+          <li class="yes">
+            <strong>알림 클릭</strong> → 창 복원 + 해당 방으로 이동 (<code
+              >open-room</code
+            >
+            IPC 라우팅)
+          </li>
+          <li class="yes">
+            <strong>활성 방을 보는 중</strong> → 알림 생략 (중복 방지)
+          </li>
+          <li class="yes">
+            <strong>완전 종료</strong> → 알림 없음 (슬랙·디코와 동일한 의도,
+            <code>isQuitting</code> 플래그로 hide와 구분)
+          </li>
+          <li class="yes">
+            <strong>WS 끊김 → 1.5초 자동 재연결</strong> · 두 번째 실행 시 새 창
+            대신 기존 창 포커스(단일 인스턴스 락)
+          </li>
+        </ul>
+
+        <div class="note good">
+          <span class="lbl"
+            >정직한 구분 — 중복 방지는 지금 클라이언트가 판단한다</span
+          >
+          · 글로벌 WS(게이트웨이) 모델 → 서버는 전체 브로드캐스트<br />
+          ·
+          <strong
+            >"이 방 보는 중이니 알림 생략" = 렌더러가 자기 상태(활성
+            방·포커스)로 판단</strong
+          ><br />
+          · presence(online/away/idle)는 서버로 보고되나 지금은 표시용,
+          <strong>서버가 알림 게이팅은 안 함</strong><br />
+          결함이 아니라 이 데모에서 선택한 구조.
+        </div>
+
+        <h3>
+          인지했지만 이 데모에선 구현하지 않은 것
+          <span class="tag plan">설계</span>
+        </h3>
+        <ul>
+          <li class="no">
+            <strong>catch-up 재동기화</strong> — 재연결은 되지만,
+            <strong>놓친 메시지 리플레이는 아직 없습니다.</strong> 데모 서버가
+            메시지를 영속화하지 않기 때문입니다. 실제로 하려면 서버가 마지막
+            수신 지점 이후를 다시 내려주는 경로가 필요 → 이식의 다음 단계.
+          </li>
+          <li class="no">
+            <strong>presence 크래시 보정</strong> — client-reported 방식이라
+            크래시·단절 시 마지막 보고를 못 보내 "항상 활성"으로 오인될 수 있음.
+            프로덕션에선 <strong>서버 heartbeat/timeout</strong>을 병행해야 함.
+          </li>
+          <li class="no">
+            <strong>세션·쿠키 유지, 오프라인 흰 화면 처리</strong> — 원격 URL
+            로드 특유의 문제. 이 데모는 로컬 개발 서버라 아직 안 건드림.
+          </li>
+          <li class="no">
+            <strong>패키징·코드 서명·자동 업데이트</strong> —
+            <code>electron .</code> 개발 실행 기준. 배포는 범위에서 의도적으로
+            제외.
+          </li>
+        </ul>
+      </section>
+
+      <!-- 5 -->
+      <section id="framework">
+        <div class="sec-num">05 / 프레임워크</div>
+        <h2>왜 Tauri가 아니라 Electron인가</h2>
+        <p>
+          "왜 Electron이냐"는 당연히 나올 질문 → 대안을 낮잡지 않고 비교.
+          <strong>Tauri는 진지한 후보</strong> — 2.0 stable(2024.10),
+          번들·메모리·보안·모바일에서 우위. "아직 불안정"이라는 인상은 낡음.
+        </p>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 24%">관점</th>
+                <th style="width: 38%">Tauri v2</th>
+                <th style="width: 38%">Electron</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>렌더링 엔진</td>
+                <td>
+                  OS WebView → <strong>macOS는 WebKit</strong>, 플랫폼별 차이
+                  실재
+                </td>
+                <td>
+                  번들된 Chromium → <strong>모든 OS에서 렌더링 일관</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>팀 스택 정합</td>
+                <td>네이티브 계층은 Rust (러닝코스트)</td>
+                <td>TS/React/Next 그대로 — <strong>Rust 세금 없음</strong></td>
+              </tr>
+              <tr>
+                <td>번들·메모리</td>
+                <td><span class="ck">✓</span> 가볍다</td>
+                <td>무겁다 (Chromium 동봉)</td>
+              </tr>
+              <tr class="chosen">
+                <td>성숙한 웹 제품 확장</td>
+                <td>그린필드엔 매력적</td>
+                <td>
+                  <strong
+                    >배포·서명·자동업데이트 생태계 성숙 → 리스크 낮음</strong
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p><strong>그럼에도 지금 Joint엔 Electron</strong> — 이유 셋:</p>
+        <ul>
+          <li>
+            <strong>Chromium 렌더링 일관성</strong> — Tauri는 OS WebView라 macOS
+            WebKit 차이 실재. 크로스브라우저 맞춰둔 웹 이식 땐 이 변수 제거가
+            안전.
+          </li>
+          <li>
+            <strong>팀 스택 정합</strong> — TS·React·Next 그대로, Rust
+            러닝코스트 없음.
+          </li>
+          <li>
+            <strong>배포·서명·자동 업데이트 성숙도</strong> — 성숙한 제품을
+            실제로 굴리는 데 중요.
+          </li>
+        </ul>
+
+        <div class="note">
+          <span class="lbl">균형 잡힌 결론</span>
+          새 그린필드라면 <strong>Tauri v2도 충분히 후보</strong>. 다만
+          <strong>성숙한 웹 제품 확장 초기</strong>엔 렌더링 일관성·스택
+          정합·배포 성숙도 때문에 Electron이 리스크 낮음. 번들·모바일이
+          중요해지면 재검토.
+        </div>
+      </section>
+
+      <!-- 6 -->
+      <section id="open">
+        <div class="sec-num">06 / 정리</div>
+        <h2>여기까지는 일반론, 확정은 실제 구조를 봐야 한다</h2>
+        <p>
+          여기까지 = <strong>레퍼런스·공개 제약 기반의 일반론</strong>.
+          프로토타입으로 "이식하면 이런 문제 → 이렇게 풀림"까지는 직접 확인. 단,
+          <strong>정확한 전략은 Joint 실제 내부 구조 확인 후 확정</strong> —
+          겸손이 아니라 실무의 순서.
+        </p>
+
+        <div class="chain">
+          <div class="chain-step">
+            <div class="chain-n">1</div>
+            <div class="chain-body">
+              <b>웹 로딩 — URL 로드로 SSR을 살린다</b
+              ><span
+                >배포된 Next 웹을 <code>loadURL</code>로 띄우는 셸. 웹 배포
+                1회로 데스크톱 최신화. (동작 확인)</span
+              >
+            </div>
+          </div>
+          <div class="chain-step">
+            <div class="chain-n">2</div>
+            <div class="chain-body">
+              <b>이식하면 먼저 막히는 건 알림</b
+              ><span
+                >표준 Web Push는 Electron에서 경로 자체가 막힘. "FCM 불가"가
+                아니라 "표준 경로 불가"가 정확.</span
+              >
+            </div>
+          </div>
+          <div class="chain-step">
+            <div class="chain-n">3</div>
+            <div class="chain-body">
+              <b>데스크톱은 트레이 상주 + WS로 충분</b
+              ><span
+                >슬랙·디코와 동일. 비공식 우회 프로토콜은 리스크 과다로 배제.
+                (WS→IPC→네이티브 알림 동작 확인)</span
+              >
+            </div>
+          </div>
+          <div class="chain-step">
+            <div class="chain-n">4</div>
+            <div class="chain-body">
+              <b>남은 건 실제 구조를 봐야 정해진다</b
+              ><span
+                >catch-up·세션·배포는 인지만 함. 확정하려면 Joint의 실제 스택
+                확인이 먼저.</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <h3>실제 구조를 확인하면 정해질 열린 질문들</h3>
+        <ul>
+          <li class="q">
+            <strong>실시간 경로</strong> — 지금 WS를 쓰는가, 아니면 이미 FCM
+            인프라가 있어 그걸 데스크톱에서도 활용하는 게 나은가?
+          </li>
+          <li class="q">
+            <strong>세션·인증</strong> — 원격 URL을 셸로 감쌀 때 로그인 세션을
+            어떻게 유지·보안하는가? (쿠키 파티션, SSO 흐름)
+          </li>
+          <li class="q">
+            <strong>배포 파이프라인</strong> — 기존 AWS · GitHub Actions에
+            데스크톱 빌드·서명·자동 업데이트를 어떻게 얹는가?
+          </li>
+          <li class="q">
+            <strong>presence·읽음 처리</strong> — 서버가 이미 presence/unread를
+            관리하는가? 그렇다면 클라이언트 판단을 서버 게이팅으로 옮기는 게
+            자연스러운가?
+          </li>
+        </ul>
+        <p style="margin-top: 8px">
+          이 프로토타입 = 완성 제품이 아니라,
+          <strong>이식이라는 실무를 어떤 순서·근거로 결정하는지</strong>
+          보여주는 기록. 다 풀어놓기보다
+          <strong>무엇이 아직 열려 있는지 안다</strong>는 걸 남기려 함.
+        </p>
+      </section>
+
+      <footer>
+        프로토타입 · 개발 실행 기준 (npm run dev → server + web:3010 + electron)
+        · 이식 결정 검증 목적
+      </footer>
     </div>
-  </header>
-
-  <!-- 1 -->
-  <section id="start">
-    <div class="sec-num">01 / 출발점</div>
-    <h2>출발점 — Next.js PWA를 Electron으로 그냥 감싸면 될까?</h2>
-    <ul>
-      <li><strong>주업무 = 웹 제품을 Electron 등 데스크톱으로 확장</strong> (JD 기준).</li>
-      <li><strong>Joint 스택 관찰</strong> — Next.js + PWA. 그럼 웹 알림은 <strong>Service Worker + FCM</strong> 경로일 것으로 추정 (표준 웹에서 사실상 유일한 길).</li>
-      <li><strong>웹(PWA)의 한계</strong> — 브라우저 샌드박스 안이라 OS 통합이 제한적: 트레이 상주 · 네이티브 알림 · 백그라운드 상시 연결 유지가 어려움 → 데스크톱으로 확장하는 이유.</li>
-    </ul>
-
-    <div class="thesis">그래서 프로토타입의 출발 질문은 하나 — <span class="accent">"기존 웹을 Electron으로 그냥 감싸면, SW+FCM으로 하던 알림이 그대로 동작할까?"</span></div>
-
-    <p>이건 가상 시스템 설계가 아니라 <strong>이미 있는 웹을 데스크톱으로 옮기는 실무 그 자체</strong>. 이식 전체로 보면 답할 게 셋인데, 그중 <strong>가장 먼저·확실히 막히는 알림부터</strong> 검증했음.</p>
-
-    <ul>
-      <li class="q"><strong>웹을 어떻게 로드?</strong> — 배포 URL(<code>loadURL</code>) vs 로컬 번들(<code>loadFile</code>). 첫 갈림길, 나머지를 규정.</li>
-      <li class="q"><strong>무엇을 네이티브로?</strong> — 웹에 둘 것 vs 셸(트레이·알림·창 관리)이 맡을 것의 경계.</li>
-      <li class="q"><strong>세션 · 오프라인 · 배포는?</strong> — 원격 URL 래핑 시 새로 생기는 문제(인증 유지, 오프라인 화면, 서명·자동 업데이트).</li>
-    </ul>
-  </section>
-
-  <!-- 2 -->
-  <section id="loading">
-    <div class="sec-num">02 / 첫 결정</div>
-    <h2>웹을 어떻게 로드하나 — URL 로드 vs 로컬 번들</h2>
-    <p>셸이 웹을 띄우는 방식 = 두 갈래. 이 선택이 SSR 가용 · 배포 횟수 · 오프라인 여부를 전부 규정 → <strong>이식의 첫 결정</strong>.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:22%">기준</th>
-            <th style="width:39%">로컬 번들 · <code>loadFile</code></th>
-            <th style="width:39%">원격 URL · <code>loadURL</code></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>렌더링 모델</td>
-            <td>Next.js <code>output:'export'</code> (SSG) <strong>만</strong> 가능</td>
-            <td>배포된 웹을 그대로 → <strong>SSR·미들웨어 살아있음</strong></td>
-          </tr>
-          <tr>
-            <td>SSR / API / 미들웨어</td>
-            <td><span class="x">✕</span> 서버 기능 사용 불가</td>
-            <td><span class="ck">✓</span> 기존 웹과 동일하게 동작</td>
-          </tr>
-          <tr>
-            <td>배포</td>
-            <td>웹 배포 + 앱 재빌드·재배포 <strong>이중 관리</strong></td>
-            <td>웹 배포 <strong>1회</strong> → 데스크톱도 자동 최신화</td>
-          </tr>
-          <tr>
-            <td>오프라인</td>
-            <td><span class="ck">✓</span> 번들이 로컬에 있어 강함</td>
-            <td><span class="x">△</span> 흰 화면 위험 — 기존 SW 캐싱으로 완화</td>
-          </tr>
-          <tr class="chosen">
-            <td>Joint 적합성</td>
-            <td>제품을 export 제약 안으로 욱여넣어야 함</td>
-            <td><strong>이미 PWA 서비스 + AWS 배포 존재 → 자연스러움</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p><strong>Joint 기준 — 이 결정은 사실상 정해져 있음.</strong></p>
-    <ul>
-      <li>이미 웹을 <strong>PWA로 배포·서비스 중</strong> → 셸은 그 배포 주소를 띄우는 <strong>크롬리스 창</strong>이면 끝.</li>
-      <li>잘 돌아가는 웹을 정적 번들(<code>output:'export'</code>)로 다시 마는 건 손해 — SSR·API 버림 + <strong>웹 배포·데스크톱 번들 이중 관리</strong> 자초.</li>
-      <li>웹 1회 배포 → 데스크톱 자동 최신. <strong>이 이점을 굳이 버릴 이유 없음.</strong></li>
-      <li>슬랙·디스코드 데스크톱도 이 계열.</li>
-    </ul>
-
-    <p><strong>단, URL 로드도 공짜는 아님</strong> — 새로 생기는 트레이드오프 (직접 겪은 게 아니라 조사한 것, 대부분 미구현 · 향후 과제):</p>
-    <ul>
-      <li class="no"><strong>오프라인</strong> — 원칙상 연결 끊기면 빈 창. 단, <strong>기존 PWA의 서비스 워커 오프라인 캐싱이 Electron(보안 컨텍스트)에서도 동작</strong> → 프로덕션에선 상당 부분 자동 커버. 단서: 최초 실행은 온라인 필요 + 세션 영속. (이 데모엔 SW 미설정.)</li>
-      <li class="no"><strong>네이티브 통합 깊이</strong> — 단순 래핑에 그치면 "그냥 웹뷰 아니냐"는 지적을 받음. 트레이·알림·창 관리 등 셸이 실제로 값을 더해야 함.</li>
-      <li class="no"><strong>세션 · 쿠키 유지</strong> — 원격 URL을 감쌀 때 로그인 세션을 어떻게 유지·보안할지(파티션, 쿠키 정책).</li>
-      <li class="no"><strong>preload API 버전 정합성</strong> — 웹은 자주 배포되는데 셸(preload)은 사용자가 업데이트해야 함. 둘 사이 API 계약이 어긋나면 깨짐.</li>
-    </ul>
-
-    <div class="note">
-      <span class="lbl">이 프로토타입에서 실제로 한 것</span>
-      셸이 <code>mainWindow.loadURL(APP_URL)</code>로 웹을 띄움.<br>
-      · 개발: <code>APP_URL = http://localhost:3010</code> (Next 개발 서버)<br>
-      · 프로덕션: 이 값을 <strong>배포 웹 주소로 교체</strong>만 하면 됨<br>
-      위 트레이드오프(오프라인·세션 등)는 <strong>인지만, 구현 안 함</strong> — 이식의 다음 단계.
-    </div>
-  </section>
-
-  <!-- 3 -->
-  <section id="notify">
-    <div class="sec-num">03 / 대표 문제</div>
-    <h2>이식하면 가장 먼저 막히는 것 = 알림</h2>
-    <p>URL 셸을 만들면 곧바로 부딪히는 게 <strong>알림</strong> — 웹에서 당연하던 푸시가 Electron 안에선 그대로 안 됨. 그래서 <strong>이식의 대표 문제</strong>로 잡고, 경로별 트레이드오프를 따져 하나 선택 + 프로토타입까지.</p>
-
-    <h3>표준 Web Push는 Electron에서 경로가 막힌다</h3>
-    <ul>
-      <li>Electron = Chromium 전체 아님 → 렌더링 핵심부(<strong>Chromium Content</strong>)만 빌드.</li>
-      <li>Google 서비스 계층 빠짐 → <strong>Push Service 없음.</strong></li>
-      <li>Firebase SDK로 <code>PushManager</code> 구독 시도 → <code>push service not available</code>.</li>
-    </ul>
-    <div class="note good">
-      <span class="lbl">정확히 말하면</span>
-      "Electron에서 FCM을 못 받음"(X) → <strong>"표준 Web Push 경로(SW + PushManager)로는 못 받음"(O)</strong>. 이 구분이 다음 선택지로 이어짐.
-    </div>
-
-    <h3>우회로는 있지만, 그래서 더 배제했다</h3>
-    <ul>
-      <li><code>electron-push-receiver</code> = 브라우저 PushManager 우회, <strong>Node가 FCM 등록·롱커넥션(MCS) 직접 구현</strong> (안드로이드 방식 흉내).</li>
-      <li><strong>장점</strong> — 앱이 꺼져도 알림.</li>
-      <li><strong>단점</strong> — 리버스 엔지니어링된 비공식 프로토콜. 원본 등록 엔드포인트 <strong>2024.6 제거로 깨짐</strong>, 포크들도 "실험용으로만" 자체 경고.</li>
-      <li><strong>판단 — 프로덕션 알림 인프라로 리스크 과다 → 배제.</strong></li>
-    </ul>
-
-    <h3>데스크톱은 트레이 상주 + WebSocket이면 충분하다</h3>
-    <p>근거 = 레퍼런스 앱의 실제 동작. <strong>슬랙·디스코드도 트레이 상주 시만 알림, 완전 종료 시 무알림</strong> — 결함이 아니라 의도된 설계. 모바일과 데스크톱은 전제가 다름.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr><th style="width:16%">환경</th><th style="width:42%">전제</th><th style="width:42%">알림에 필요한 것</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>모바일</strong></td>
-            <td>OS가 앱을 수시로 종료 (메모리 관리)</td>
-            <td>앱과 독립된 <strong>OS 푸시(FCM·APNs) 필수</strong></td>
-          </tr>
-          <tr class="chosen">
-            <td><strong>데스크톱</strong></td>
-            <td>사용자가 Quit하기 전엔 프로세스 유지, 트레이 상주가 자연스러움</td>
-            <td><strong>상시 WS 연결만으로 충분</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p>즉 "앱 꺼져도 알림"용 OS 푸시는 데스크톱 현 단계엔 <strong>과한 설계</strong>. 완전 종료 무알림 = 슬랙·디코와 동일한 의도 → <strong>표준 WebSocket 경로 선택</strong>. 표준 의존성만 쓰니 비공식 프로토콜 리스크도 없음.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:28%">경로</th>
-            <th style="width:46%">성격</th>
-            <th style="width:26%">판정</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="chosen">
-            <td>WebSocket + IPC</td>
-            <td>렌더러가 WS 수신 → IPC로 메인 → 네이티브 알림. 표준 의존성만 사용.</td>
-            <td><span class="tag pick">선택</span></td>
-          </tr>
-          <tr>
-            <td>표준 Web Push (SW+FCM)</td>
-            <td>Electron에 Push Service 부재 → 경로 자체가 막힘.</td>
-            <td><span class="tag drop">불가</span></td>
-          </tr>
-          <tr>
-            <td>electron-push-receiver</td>
-            <td>Node가 FCM·MCS 직접 구현. 비공식 리버스 프로토콜, 2024.6 이후 불안정.</td>
-            <td><span class="tag drop">배제</span></td>
-          </tr>
-          <tr>
-            <td>OS 네이티브 푸시 (WNS·APNs)</td>
-            <td>"앱 꺼져도 알림"의 정석. 지금 단계엔 과함.</td>
-            <td><span class="tag care">향후</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- 4 -->
-  <section id="arch">
-    <div class="sec-num">04 / 구현</div>
-    <h2>프로토타입 아키텍처와 실제 동작</h2>
-    <p>실제 동작하는 데모로 구현. 셸이 웹 UI를 <code>loadURL</code>로 띄우고, 렌더러가 받은 WS 메시지 → <strong>preload 브리지(contextBridge) → 메인 프로세스</strong> → 네이티브 알림.</p>
-
-    <figure>
-      <!-- flow diagram -->
-      <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" font-family="Pretendard Variable, Pretendard, sans-serif">
-        <defs>
-          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-            <path d="M1,1 L8,4.5 L1,8" fill="none" stroke="#1a8f6b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </marker>
-          <marker id="arrowStone" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-            <path d="M1,1 L8,4.5 L1,8" fill="none" stroke="#8a8578" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </marker>
-        </defs>
-
-        <!-- Server -->
-        <rect x="20" y="20" width="180" height="86" rx="10" fill="#ffffff" stroke="#c9c6bd" stroke-width="1.2"/>
-        <text x="110" y="46" text-anchor="middle" font-size="13.5" font-weight="600" fill="#12161c">데모 서버</text>
-        <text x="110" y="66" text-anchor="middle" font-size="11" fill="#6b7480">Node + ws</text>
-        <text x="110" y="84" text-anchor="middle" font-size="10.5" fill="#8a8578">room · presence · 브로드캐스트</text>
-
-        <!-- WS arrow down -->
-        <line x1="110" y1="106" x2="110" y2="150" stroke="#1a8f6b" stroke-width="1.8" marker-end="url(#arrow)"/>
-        <text x="122" y="132" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="#1a8f6b">WebSocket</text>
-
-        <!-- Renderer -->
-        <rect x="20" y="152" width="180" height="96" rx="10" fill="#e5f2ec" stroke="#1a8f6b" stroke-width="1.3"/>
-        <text x="110" y="176" text-anchor="middle" font-size="13.5" font-weight="600" fill="#12161c">렌더러 (Next.js)</text>
-        <text x="110" y="195" text-anchor="middle" font-size="10.5" fill="#3a4149">웹 UI · loadURL(:3010)</text>
-        <text x="110" y="212" text-anchor="middle" font-size="10.5" fill="#3a4149">WS 수신 · 렌더링</text>
-        <text x="110" y="229" text-anchor="middle" font-size="10.5" fill="#3a4149">focus/active-room 판단</text>
-
-        <!-- IPC arrow right -->
-        <line x1="200" y1="200" x2="270" y2="200" stroke="#1a8f6b" stroke-width="1.8" marker-end="url(#arrow)"/>
-        <text x="235" y="190" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="#1a8f6b">IPC</text>
-        <text x="235" y="216" text-anchor="middle" font-size="9" fill="#8a8578">preload</text>
-
-        <!-- Main -->
-        <rect x="272" y="152" width="180" height="96" rx="10" fill="#ffffff" stroke="#c9c6bd" stroke-width="1.2"/>
-        <text x="362" y="176" text-anchor="middle" font-size="13.5" font-weight="600" fill="#12161c">메인 (Electron)</text>
-        <text x="362" y="195" text-anchor="middle" font-size="10.5" fill="#3a4149">트레이 상주 · close→hide</text>
-        <text x="362" y="212" text-anchor="middle" font-size="10.5" fill="#3a4149">backgroundThrottling:false</text>
-        <text x="362" y="229" text-anchor="middle" font-size="10.5" fill="#3a4149">Notification 생성</text>
-
-        <!-- Notification arrow -->
-        <line x1="452" y1="200" x2="522" y2="200" stroke="#1a8f6b" stroke-width="1.8" marker-end="url(#arrow)"/>
-        <!-- Native notification -->
-        <rect x="524" y="164" width="176" height="72" rx="10" fill="#12161c"/>
-        <circle cx="548" cy="192" r="8" fill="#1a8f6b"/>
-        <text x="566" y="188" font-size="11.5" font-weight="600" fill="#ffffff">Joint</text>
-        <text x="566" y="205" font-size="10" fill="#b7c0c9">새 메시지 · 거래처 A</text>
-        <text x="612" y="228" text-anchor="middle" font-size="9.5" fill="#8a8578">OS 네이티브 알림</text>
-
-        <!-- click routing back -->
-        <path d="M612,164 C612,104 400,102 364,150" fill="none" stroke="#8a8578" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arrowStone)"/>
-        <text x="474" y="96" text-anchor="middle" font-size="10" fill="#8a8578">클릭 → 창 복원 · 해당 방으로 라우팅 (open-room)</text>
-
-        <!-- focus loop note -->
-        <path d="M110,248 C110,280 300,286 340,258" fill="none" stroke="#8a8578" stroke-width="1.3" stroke-dasharray="4 4"/>
-        <text x="230" y="286" text-anchor="middle" font-size="9.5" fill="#8a8578">해당 방 보는 중이면 알림 생략 (중복 방지)</text>
-      </svg>
-      <figcaption><strong>흐름:</strong> 서버가 WS로 브로드캐스트 → 렌더러가 수신하고 "지금 이 방을 보고 있는지" 판단 → 아니면 IPC로 메인에 넘겨 네이티브 알림 → 클릭하면 창 복원 후 해당 방으로 라우팅.</figcaption>
-    </figure>
-
-    <p><strong>핵심 = 직접 구현·동작 확인한 것</strong>과 <strong>조사·설계만 한 것</strong>을 섞지 않기. 아래가 그 구분.</p>
-
-    <div class="legend">
-      <span><i class="swatch done"></i> 직접 구현 · 동작 확인됨</span>
-      <span><i class="swatch plan"></i> 설계·인지만 함 (미구현)</span>
-    </div>
-
-    <h3>직접 구현하고 시연으로 확인한 것 <span class="tag done">확인됨</span></h3>
-    <ul>
-      <li class="yes"><strong>최소화·트레이 상태에서도 WS 유지 → 네이티브 알림</strong> (<code>backgroundThrottling:false</code>로 백그라운드 freeze 방지)</li>
-      <li class="yes"><strong>다른 방 메시지</strong> → 포커스 중이어도 알림 + unread를 트레이 아이콘·독 배지·문서 제목에 반영</li>
-      <li class="yes"><strong>알림 클릭</strong> → 창 복원 + 해당 방으로 이동 (<code>open-room</code> IPC 라우팅)</li>
-      <li class="yes"><strong>활성 방을 보는 중</strong> → 알림 생략 (중복 방지)</li>
-      <li class="yes"><strong>완전 종료</strong> → 알림 없음 (슬랙·디코와 동일한 의도, <code>isQuitting</code> 플래그로 hide와 구분)</li>
-      <li class="yes"><strong>WS 끊김 → 1.5초 자동 재연결</strong> · 두 번째 실행 시 새 창 대신 기존 창 포커스(단일 인스턴스 락)</li>
-    </ul>
-
-    <div class="note good">
-      <span class="lbl">정직한 구분 — 중복 방지는 지금 클라이언트가 판단한다</span>
-      · 글로벌 WS(게이트웨이) 모델 → 서버는 전체 브로드캐스트<br>
-      · <strong>"이 방 보는 중이니 알림 생략" = 렌더러가 자기 상태(활성 방·포커스)로 판단</strong><br>
-      · presence(online/away/idle)는 서버로 보고되나 지금은 표시용, <strong>서버가 알림 게이팅은 안 함</strong><br>
-      결함이 아니라 이 데모에서 선택한 구조.
-    </div>
-
-    <h3>인지했지만 이 데모에선 구현하지 않은 것 <span class="tag plan">설계</span></h3>
-    <ul>
-      <li class="no"><strong>catch-up 재동기화</strong> — 재연결은 되지만, <strong>놓친 메시지 리플레이는 아직 없습니다.</strong> 데모 서버가 메시지를 영속화하지 않기 때문입니다. 실제로 하려면 서버가 마지막 수신 지점 이후를 다시 내려주는 경로가 필요 → 이식의 다음 단계.</li>
-      <li class="no"><strong>presence 크래시 보정</strong> — client-reported 방식이라 크래시·단절 시 마지막 보고를 못 보내 "항상 활성"으로 오인될 수 있음. 프로덕션에선 <strong>서버 heartbeat/timeout</strong>을 병행해야 함.</li>
-      <li class="no"><strong>세션·쿠키 유지, 오프라인 흰 화면 처리</strong> — 원격 URL 로드 특유의 문제. 이 데모는 로컬 개발 서버라 아직 안 건드림.</li>
-      <li class="no"><strong>패키징·코드 서명·자동 업데이트</strong> — <code>electron .</code> 개발 실행 기준. 배포는 범위에서 의도적으로 제외.</li>
-    </ul>
-  </section>
-
-  <!-- 5 -->
-  <section id="framework">
-    <div class="sec-num">05 / 프레임워크</div>
-    <h2>왜 Tauri가 아니라 Electron인가</h2>
-    <p>"왜 Electron이냐"는 당연히 나올 질문 → 대안을 낮잡지 않고 비교. <strong>Tauri는 진지한 후보</strong> — 2.0 stable(2024.10), 번들·메모리·보안·모바일에서 우위. "아직 불안정"이라는 인상은 낡음.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr><th style="width:24%">관점</th><th style="width:38%">Tauri v2</th><th style="width:38%">Electron</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>렌더링 엔진</td>
-            <td>OS WebView → <strong>macOS는 WebKit</strong>, 플랫폼별 차이 실재</td>
-            <td>번들된 Chromium → <strong>모든 OS에서 렌더링 일관</strong></td>
-          </tr>
-          <tr>
-            <td>팀 스택 정합</td>
-            <td>네이티브 계층은 Rust (러닝코스트)</td>
-            <td>TS/React/Next 그대로 — <strong>Rust 세금 없음</strong></td>
-          </tr>
-          <tr>
-            <td>번들·메모리</td>
-            <td><span class="ck">✓</span> 가볍다</td>
-            <td>무겁다 (Chromium 동봉)</td>
-          </tr>
-          <tr class="chosen">
-            <td>성숙한 웹 제품 확장</td>
-            <td>그린필드엔 매력적</td>
-            <td><strong>배포·서명·자동업데이트 생태계 성숙 → 리스크 낮음</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p><strong>그럼에도 지금 Joint엔 Electron</strong> — 이유 셋:</p>
-    <ul>
-      <li><strong>Chromium 렌더링 일관성</strong> — Tauri는 OS WebView라 macOS WebKit 차이 실재. 크로스브라우저 맞춰둔 웹 이식 땐 이 변수 제거가 안전.</li>
-      <li><strong>팀 스택 정합</strong> — TS·React·Next 그대로, Rust 러닝코스트 없음.</li>
-      <li><strong>배포·서명·자동 업데이트 성숙도</strong> — 성숙한 제품을 실제로 굴리는 데 중요.</li>
-    </ul>
-
-    <div class="note">
-      <span class="lbl">균형 잡힌 결론</span>
-      새 그린필드라면 <strong>Tauri v2도 충분히 후보</strong>. 다만 <strong>성숙한 웹 제품 확장 초기</strong>엔 렌더링 일관성·스택 정합·배포 성숙도 때문에 Electron이 리스크 낮음. 번들·모바일이 중요해지면 재검토.
-    </div>
-  </section>
-
-  <!-- 6 -->
-  <section id="open">
-    <div class="sec-num">06 / 정리</div>
-    <h2>여기까지는 일반론, 확정은 실제 구조를 봐야 한다</h2>
-    <p>여기까지 = <strong>레퍼런스·공개 제약 기반의 일반론</strong>. 프로토타입으로 "이식하면 이런 문제 → 이렇게 풀림"까지는 직접 확인. 단, <strong>정확한 전략은 Joint 실제 내부 구조 확인 후 확정</strong> — 겸손이 아니라 실무의 순서.</p>
-
-    <div class="chain">
-      <div class="chain-step">
-        <div class="chain-n">1</div>
-        <div class="chain-body"><b>웹 로딩 — URL 로드로 SSR을 살린다</b><span>배포된 Next 웹을 <code>loadURL</code>로 띄우는 셸. 웹 배포 1회로 데스크톱 최신화. (동작 확인)</span></div>
-      </div>
-      <div class="chain-step">
-        <div class="chain-n">2</div>
-        <div class="chain-body"><b>이식하면 먼저 막히는 건 알림</b><span>표준 Web Push는 Electron에서 경로 자체가 막힘. "FCM 불가"가 아니라 "표준 경로 불가"가 정확.</span></div>
-      </div>
-      <div class="chain-step">
-        <div class="chain-n">3</div>
-        <div class="chain-body"><b>데스크톱은 트레이 상주 + WS로 충분</b><span>슬랙·디코와 동일. 비공식 우회 프로토콜은 리스크 과다로 배제. (WS→IPC→네이티브 알림 동작 확인)</span></div>
-      </div>
-      <div class="chain-step">
-        <div class="chain-n">4</div>
-        <div class="chain-body"><b>남은 건 실제 구조를 봐야 정해진다</b><span>catch-up·세션·배포는 인지만 함. 확정하려면 Joint의 실제 스택 확인이 먼저.</span></div>
-      </div>
-    </div>
-
-    <h3>실제 구조를 확인하면 정해질 열린 질문들</h3>
-    <ul>
-      <li class="q"><strong>실시간 경로</strong> — 지금 WS를 쓰는가, 아니면 이미 FCM 인프라가 있어 그걸 데스크톱에서도 활용하는 게 나은가?</li>
-      <li class="q"><strong>세션·인증</strong> — 원격 URL을 셸로 감쌀 때 로그인 세션을 어떻게 유지·보안하는가? (쿠키 파티션, SSO 흐름)</li>
-      <li class="q"><strong>배포 파이프라인</strong> — 기존 AWS · GitHub Actions에 데스크톱 빌드·서명·자동 업데이트를 어떻게 얹는가?</li>
-      <li class="q"><strong>presence·읽음 처리</strong> — 서버가 이미 presence/unread를 관리하는가? 그렇다면 클라이언트 판단을 서버 게이팅으로 옮기는 게 자연스러운가?</li>
-    </ul>
-    <p style="margin-top:8px">이 프로토타입 = 완성 제품이 아니라, <strong>이식이라는 실무를 어떤 순서·근거로 결정하는지</strong> 보여주는 기록. 다 풀어놓기보다 <strong>무엇이 아직 열려 있는지 안다</strong>는 걸 남기려 함.</p>
-  </section>
-
-  <footer>
-    프로토타입 · 개발 실행 기준 (npm run dev → server + web:3010 + electron) · 이식 결정 검증 목적
-  </footer>
-
-</div>
-</body>
+  </body>
 </html>
