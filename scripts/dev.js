@@ -24,6 +24,10 @@ const http = require('http')
 const path = require('path')
 
 const ROOT = path.join(__dirname, '..')
+const IS_WIN = process.platform === 'win32'
+// Windows: npm은 .cmd라서 shell 없이 spawn하면 ENOENT/EINVAL이 난다.
+// (Node 20+는 .cmd/.bat를 shell 없이 직접 spawn하는 것을 막음)
+const NPM = 'npm'
 const C = {
   server: '\x1b[34m', // blue
   web: '\x1b[32m', // green
@@ -55,7 +59,11 @@ function run(name, cmd, args, env) {
   const child = spawn(cmd, args, {
     cwd: ROOT,
     env: { ...process.env, ...env },
-    detached: true, // 프로세스 그룹으로 만들어, 종료 시 손자 프로세스까지 정리
+    // Unix: 프로세스 그룹으로 손자까지 정리. Windows에서는 그룹 kill이 안 되고
+    // .cmd + detached가 EINVAL을 내므로 shell만 켠다.
+    detached: !IS_WIN,
+    shell: IS_WIN,
+    windowsHide: true,
   })
   const color = C[name] || ''
   const prefix = `${color}[${name}]${C.reset}`
@@ -106,8 +114,16 @@ function shutdown() {
   shuttingDown = true
   for (const c of children) {
     try {
-      // 음수 pid = 프로세스 그룹 전체에 시그널 (detached 덕분에 가능)
-      process.kill(-c.pid, 'SIGTERM')
+      if (IS_WIN) {
+        // /T = 자식 트리까지 종료 (shell로 띄운 npm 손자 포함)
+        spawn('taskkill', ['/pid', String(c.pid), '/T', '/F'], {
+          stdio: 'ignore',
+          windowsHide: true,
+        })
+      } else {
+        // 음수 pid = 프로세스 그룹 전체에 시그널 (detached 덕분에 가능)
+        process.kill(-c.pid, 'SIGTERM')
+      }
     } catch {
       try {
         c.kill('SIGTERM')
@@ -131,12 +147,12 @@ process.on('SIGTERM', shutdown)
   )
 
   // 1) WS 서버
-  run('server', 'npm', ['--prefix', 'server', 'start'], {
+  run('server', NPM, ['--prefix', 'server', 'start'], {
     PORT: String(wsPort),
   })
 
   // 2) 웹 (Next.js) — 포트와 WS 주소를 주입
-  run('web', 'npm', ['--prefix', 'web', 'run', 'dev'], {
+  run('web', NPM, ['--prefix', 'web', 'run', 'dev'], {
     PORT: String(webPort),
     NEXT_PUBLIC_WS_URL: `ws://localhost:${wsPort}`,
   })
@@ -155,7 +171,7 @@ process.on('SIGTERM', shutdown)
   }
   process.stdout.write(`${C.dim}✓ web 준비됨 → 일렉트론 실행${C.reset}\n`)
 
-  run('electron', 'npm', ['--prefix', 'electron', 'run', 'start'], {
+  run('electron', NPM, ['--prefix', 'electron', 'run', 'start'], {
     APP_URL: `http://localhost:${webPort}`,
   })
 })()
