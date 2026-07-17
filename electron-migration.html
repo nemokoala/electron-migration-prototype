@@ -480,16 +480,16 @@
         <div class="eyebrow">Web → Desktop · Migration Notes</div>
         <h1>기존 Next.js + PWA를<br />Electron으로 이식하기</h1>
         <p class="lede">
-          JD 주업무 = 웹 제품을 Electron 등 데스크톱으로 확장. Joint 스택을 보면
-          <strong>Next.js + PWA</strong> → 웹 알림은
-          <strong>Service Worker + FCM</strong> 경로일 것으로 추정. 그래서 출발
-          질문은 하나였음 —
+          채용공고 주업무 = 웹 제품을 Electron 등 데스크톱으로 확장. 그래서 출발
+          질문 —
           <strong
-            >이 웹을 Electron으로 그냥 감싸면, 그 알림이 그대로
-            동작할까?</strong
+            >Joint의 Next.js 웹을 Electron으로 이식하면 어디서 막히고 어떻게
+            푸는가?</strong
           >
-          이걸 검증하려고 프로토타입을 만들었음. (정확한 전략은 Joint 실제 구조
-          확인 필요)
+          로딩·알림·배포를 훑되, <strong>가장 먼저·확실히 막히는 알림부터</strong>
+          실제로 검증했음. (웹 알림이 <strong>Service Worker + FCM</strong>
+          경로라면 Electron에서 그대로 될지가 첫 관문 — 정확한 전략은 실제 구조
+          확인 필요.)
         </p>
         <div class="meta">
           <span><strong>스택</strong> &nbsp;Next.js · Electron · Node(ws)</span>
@@ -510,7 +510,7 @@
         <ul>
           <li>
             <strong>주업무 = 웹 제품을 Electron 등 데스크톱으로 확장</strong>
-            (JD 기준).
+            (채용공고 기준).
           </li>
           <li>
             <strong>Joint 스택 관찰</strong> — Next.js + PWA. 그럼 웹 알림은
@@ -525,10 +525,10 @@
         </ul>
 
         <div class="thesis">
-          그래서 프로토타입의 출발 질문은 하나 —
+          그래서 프로토타입의 출발 질문 —
           <span class="accent"
-            >"기존 웹을 Electron으로 그냥 감싸면, SW+FCM으로 하던 알림이 그대로
-            동작할까?"</span
+            >"기존 웹을 Electron으로 그냥 감싸면, 어디서 막히고 그걸 어떻게
+            푸는가?"</span
           >
         </div>
 
@@ -556,8 +556,87 @@
       </section>
 
       <!-- 2 -->
+      <section id="framework">
+        <div class="sec-num">02 / 프레임워크</div>
+        <h2>왜 Tauri가 아니라 Electron인가</h2>
+        <p>
+          "왜 Electron이냐"는 당연히 나올 질문 → 대안을 낮잡지 않고 비교.
+          <strong>Tauri는 진지한 후보</strong> — 2.0 stable(2024.10),
+          번들·메모리·보안·모바일에서 우위. "아직 불안정"이라는 인상은 낡음.
+        </p>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 24%">관점</th>
+                <th style="width: 38%">Tauri v2</th>
+                <th style="width: 38%">Electron</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>렌더링 엔진</td>
+                <td>
+                  OS WebView → <strong>macOS는 WebKit</strong>, 플랫폼별 차이
+                  실재
+                </td>
+                <td>
+                  번들된 Chromium → <strong>모든 OS에서 렌더링 일관</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>팀 스택 정합</td>
+                <td>네이티브 계층은 Rust (러닝코스트)</td>
+                <td>TS/React/Next 그대로 — <strong>Rust 세금 없음</strong></td>
+              </tr>
+              <tr>
+                <td>번들·메모리</td>
+                <td><span class="ck">✓</span> 가볍다</td>
+                <td>무겁다 (Chromium 동봉)</td>
+              </tr>
+              <tr class="chosen">
+                <td>성숙한 웹 제품 확장</td>
+                <td>그린필드엔 매력적</td>
+                <td>
+                  <strong
+                    >배포·서명·자동업데이트 생태계 성숙 → 리스크 낮음</strong
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p><strong>그럼에도 지금 Joint엔 Electron</strong> — 이유 셋:</p>
+        <ul>
+          <li>
+            <strong>Chromium 렌더링 일관성</strong> — Tauri는 OS WebView라 macOS
+            WebKit 차이 실재. 크로스브라우저 맞춰둔 웹 이식 땐 이 변수 제거가
+            안전.
+          </li>
+          <li>
+            <strong>팀 스택 정합</strong> — TS·React·Next 그대로, Rust
+            러닝코스트 없음.
+          </li>
+          <li>
+            <strong>배포·서명·자동 업데이트 성숙도</strong> — 성숙한 제품을
+            실제로 굴리는 데 중요.
+          </li>
+        </ul>
+
+        <div class="note">
+          <span class="lbl">균형 잡힌 결론</span>
+          새 그린필드라면 <strong>Tauri v2도 충분히 후보</strong>. 다만
+          <strong>성숙한 웹 제품 확장 초기</strong>엔 렌더링 일관성·스택
+          정합·배포 성숙도 때문에 Electron이 리스크 낮음. 번들·모바일이
+          중요해지면 재검토.
+        </div>
+      </section>
+
+      <!-- 3 -->
       <section id="loading">
-        <div class="sec-num">02 / 첫 결정</div>
+        <div class="sec-num">03 / 첫 결정</div>
         <h2>웹을 어떻게 로드하나 — URL 로드 vs 로컬 번들</h2>
         <p>
           셸이 웹을 띄우는 방식 = 두 갈래. 이 선택이 SSR 가용 · 배포 횟수 ·
@@ -632,31 +711,18 @@
 
         <p>
           <strong>단, URL 로드도 공짜는 아님</strong> — 새로 생기는 트레이드오프
-          (직접 겪은 게 아니라 조사한 것, 대부분 미구현 · 향후 과제):
+          (조사만 함, 대부분 미구현 · 향후 과제):
         </p>
         <ul>
           <li class="no">
-            <strong>오프라인</strong> — 원칙상 연결 끊기면 빈 창. 단,
-            <strong
-              >기존 PWA의 서비스 워커 오프라인 캐싱이 Electron(보안
-              컨텍스트)에서도 동작</strong
-            >
-            → 프로덕션에선 상당 부분 자동 커버. 단서: 최초 실행은 온라인 필요 +
-            세션 영속. (이 데모엔 SW 미설정.)
+            <strong>오프라인</strong> — 끊기면 원칙상 빈 창이지만 대비책 둘:
+            PWA의 SW 캐싱이 Electron에서도 동작 + <code>did-fail-load</code> 감지
+            시 번들된 <code>offline.html</code>로 폴백(메인 차원, SW와 무관).
+            (데모엔 미설정.)
           </li>
           <li class="no">
-            <strong>네이티브 통합 깊이</strong> — 단순 래핑에 그치면 "그냥 웹뷰
-            아니냐"는 지적을 받음. 트레이·알림·창 관리 등 셸이 실제로 값을
-            더해야 함.
-          </li>
-          <li class="no">
-            <strong>세션 · 쿠키 유지</strong> — 원격 URL을 감쌀 때 로그인 세션을
-            어떻게 유지·보안할지(파티션, 쿠키 정책).
-          </li>
-          <li class="no">
-            <strong>preload API 버전 정합성</strong> — 웹은 자주 배포되는데
-            셸(preload)은 사용자가 업데이트해야 함. 둘 사이 API 계약이 어긋나면
-            깨짐.
+            <strong>preload API 정합성</strong> — 웹은 자주 배포되나 셸은 사용자
+            업데이트 → API 계약 어긋나면 깨짐.
           </li>
         </ul>
 
@@ -671,9 +737,9 @@
         </div>
       </section>
 
-      <!-- 3 -->
+      <!-- 4 -->
       <section id="notify">
-        <div class="sec-num">03 / 대표 문제</div>
+        <div class="sec-num">04 / 대표 문제</div>
         <h2>이식하면 가장 먼저 막히는 것 = 알림</h2>
         <p>
           URL 셸을 만들면 곧바로 부딪히는 게 <strong>알림</strong> — 웹에서
@@ -801,11 +867,74 @@
             </tbody>
           </table>
         </div>
+
+        <div class="note">
+          <span class="lbl">"백그라운드"는 두 가지 — 구분이 핵심</span>
+          웹에서도 백그라운드 알림이 되는 경우가 있는데, "백그라운드"의 의미가
+          두 가지로 갈리기 때문임.<br />
+          · <strong>① 창 최소화 / 탭 비활성 (브라우저·탭은 생존)</strong> —
+          페이지 JS가 살아있어 <strong>WS 유지 → <code>new Notification()</code>
+          그대로 뜸</strong>. 웹이든 Electron이든 동작. (WS 수신은 타이머와 달리
+          백그라운드에서도 throttle 거의 안 됨)<br />
+          · <strong>② 브라우저 완전 종료 / 모바일 OS suspend</strong> — 페이지
+          JS·WS가 <strong>사라져 알림을 띄울 주체가 없음</strong>. 이때만
+          SW+FCM이 유일한 경로 → FCM의 존재 이유가 여기.<br />
+          즉 웹의 백그라운드 알림은 ① 한정. Electron은
+          <strong>트레이 상주로 프로세스를 유지해 ①을 항상 보장</strong>,
+          그래서 FCM 없이 ②까지 커버함.
+        </div>
+
+        <h3>정리 — 결정은 두 단계: 전송(강제) + 표시(선택)</h3>
+        <p>
+          알림을 "전송(메시지를 어떻게 받나)"과 "표시(받은 걸 어떻게 띄우나)"로
+          쪼개면 판단이 명확해짐.
+        </p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%">단계</th>
+                <th style="width: 30%">선택</th>
+                <th style="width: 50%">근거</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="chosen">
+                <td><strong>전송</strong></td>
+                <td>WebSocket <span class="tag pick">강제</span></td>
+                <td>
+                  Electron에서 표준 Web Push(FCM) 경로가 막힘 → 메시지를 받아올
+                  방법이 상시 WS뿐. 선택이 아니라 결정됨.
+                </td>
+              </tr>
+              <tr class="chosen">
+                <td><strong>표시</strong></td>
+                <td>IPC → 메인 네이티브 <span class="tag pick">선택</span></td>
+                <td>
+                  렌더러 웹 <code>Notification</code>으로도 뜨고 방 전환까지 됨.
+                  다만 <strong>트레이에 숨긴 창 복원은 메인만 가능</strong> →
+                  알림 로직을 렌더러·메인으로 쪼개게 됨. 어차피 Electron 셸이라
+                  <strong>창 제어·앱 정체성(<code>setAppUserModelId</code>)·클릭
+                  라우팅이 이미 메인에 모여 있음</strong> → 알림도 메인 네이티브로
+                  일원화하는 게 자연스럽고, <strong>웹 노티를 굳이 쓸 이유가
+                  없음.</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          즉 <strong>"웹으로도 알림이 뜨는데 왜 네이티브냐"의 답은 "웹은 안 된다"가
+          아니라 "어차피 Electron이라 굳이 웹 노티를 쓸 이유가 없다"</strong> —
+          창 제어·정체성·클릭 라우팅이 이미 메인에 있으니 알림도 거기로 일원화.
+          그 경로가 다음 섹션의
+          <code>WS → preload → 메인 → 네이티브</code>.
+        </p>
       </section>
 
-      <!-- 4 -->
+      <!-- 5 -->
       <section id="arch">
-        <div class="sec-num">04 / 구현</div>
+        <div class="sec-num">05 / 구현</div>
         <h2>프로토타입 아키텍처와 실제 동작</h2>
         <p>
           실제 동작하는 데모로 구현. 셸이 웹 UI를 <code>loadURL</code>로 띄우고,
@@ -964,7 +1093,7 @@
               font-size="10.5"
               fill="#3a4149"
             >
-              focus/active-room 판단
+              focus·알림 표시 판단
             </text>
 
             <!-- IPC arrow right -->
@@ -1104,31 +1233,14 @@
               font-size="10"
               fill="#8a8578"
             >
-              클릭 → 창 복원 · 해당 방으로 라우팅 (open-room)
+              클릭 → 창 복원 · 라우팅 (open-room)
             </text>
 
-            <!-- focus loop note -->
-            <path
-              d="M110,248 C110,280 300,286 340,258"
-              fill="none"
-              stroke="#8a8578"
-              stroke-width="1.3"
-              stroke-dasharray="4 4"
-            />
-            <text
-              x="230"
-              y="286"
-              text-anchor="middle"
-              font-size="9.5"
-              fill="#8a8578"
-            >
-              해당 방 보는 중이면 알림 생략 (중복 방지)
-            </text>
           </svg>
           <figcaption>
             <strong>흐름:</strong> 서버가 WS로 브로드캐스트 → 렌더러가 수신하고
-            "지금 이 방을 보고 있는지" 판단 → 아니면 IPC로 메인에 넘겨 네이티브
-            알림 → 클릭하면 창 복원 후 해당 방으로 라우팅.
+            알림을 띄울지 판단 → 띄운다면 IPC로 메인에 넘겨 네이티브 알림 →
+            클릭하면 창 복원 후 라우팅.
           </figcaption>
         </figure>
 
@@ -1151,17 +1263,14 @@
             (<code>backgroundThrottling:false</code>로 백그라운드 freeze 방지)
           </li>
           <li class="yes">
-            <strong>다른 방 메시지</strong> → 포커스 중이어도 알림 + unread를
-            트레이 아이콘·독 배지·문서 제목에 반영
+            <strong>미확인 개수 → 트레이 아이콘·독 배지·창 제목에 반영</strong>
+            (OS 통합; 개수를 어떻게 세는지는 앱 몫)
           </li>
           <li class="yes">
-            <strong>알림 클릭</strong> → 창 복원 + 해당 방으로 이동 (<code
+            <strong>알림 클릭</strong> → 창 복원 + 대상 화면으로 라우팅 (<code
               >open-room</code
             >
-            IPC 라우팅)
-          </li>
-          <li class="yes">
-            <strong>활성 방을 보는 중</strong> → 알림 생략 (중복 방지)
+            IPC)
           </li>
           <li class="yes">
             <strong>완전 종료</strong> → 알림 없음 (슬랙·디코와 동일한 의도,
@@ -1174,18 +1283,18 @@
         </ul>
 
         <div class="note good">
-          <span class="lbl"
-            >정직한 구분 — 중복 방지는 지금 클라이언트가 판단한다</span
-          >
-          · 글로벌 WS(게이트웨이) 모델 → 서버는 전체 브로드캐스트<br />
-          ·
-          <strong
-            >"이 방 보는 중이니 알림 생략" = 렌더러가 자기 상태(활성
-            방·포커스)로 판단</strong
-          ><br />
-          · presence(online/away/idle)는 서버로 보고되나 지금은 표시용,
-          <strong>서버가 알림 게이팅은 안 함</strong><br />
-          결함이 아니라 이 데모에서 선택한 구조.
+          <span class="lbl">예시 앱 로직 — 이식 검증이 아니라 데모 스캐폴딩</span>
+          방별 unread 배지 · 활성 방(포커스+보는 중) 알림 생략 · 다른 방
+          알림+배지 = 알림 메커니즘을 사실적으로 시연하려고 넣은
+          <strong>예시 채팅 UX</strong>. 실제 Joint가 멀티룸 채팅인지·알림
+          로직이 어떤지는 미확인 →
+          <strong>이 부분은 "이식 검증 항목"이 아님.</strong><br />
+          단, 여기서 <strong>실제 이식에도 그대로 넘어가는 설계 질문 하나</strong>
+          — <strong>"알림을 띄울지 말지를 클라이언트가 판단하나, 서버가
+          게이팅하나?"</strong> 이 데모는 렌더러가 자기 상태(활성 방·포커스)로
+          판단하고, 서버는 전체 브로드캐스트만 함(글로벌 WS). presence는 보고되나
+          표시용이고 서버 게이팅은 안 함. 결함이 아니라 데모에서 선택한 구조이며,
+          프로덕션에선 서버로 옮기는 게 자연스러운지가 열린 질문.
         </div>
 
         <h3>
@@ -1205,8 +1314,9 @@
             프로덕션에선 <strong>서버 heartbeat/timeout</strong>을 병행해야 함.
           </li>
           <li class="no">
-            <strong>세션·쿠키 유지, 오프라인 흰 화면 처리</strong> — 원격 URL
-            로드 특유의 문제. 이 데모는 로컬 개발 서버라 아직 안 건드림.
+            <strong>세션·오프라인 실제 배선</strong> — 해법은 정리됨(세션 =
+            persistent 쿠키로 기본 유지 / 오프라인 = SW 캐싱 + did-fail-load
+            폴백). 다만 이 데모는 로컬 개발 서버·무인증이라 실제로 켜보진 않음.
           </li>
           <li class="no">
             <strong>패키징·코드 서명·자동 업데이트</strong> —
@@ -1214,85 +1324,6 @@
             제외.
           </li>
         </ul>
-      </section>
-
-      <!-- 5 -->
-      <section id="framework">
-        <div class="sec-num">05 / 프레임워크</div>
-        <h2>왜 Tauri가 아니라 Electron인가</h2>
-        <p>
-          "왜 Electron이냐"는 당연히 나올 질문 → 대안을 낮잡지 않고 비교.
-          <strong>Tauri는 진지한 후보</strong> — 2.0 stable(2024.10),
-          번들·메모리·보안·모바일에서 우위. "아직 불안정"이라는 인상은 낡음.
-        </p>
-
-        <div class="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 24%">관점</th>
-                <th style="width: 38%">Tauri v2</th>
-                <th style="width: 38%">Electron</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>렌더링 엔진</td>
-                <td>
-                  OS WebView → <strong>macOS는 WebKit</strong>, 플랫폼별 차이
-                  실재
-                </td>
-                <td>
-                  번들된 Chromium → <strong>모든 OS에서 렌더링 일관</strong>
-                </td>
-              </tr>
-              <tr>
-                <td>팀 스택 정합</td>
-                <td>네이티브 계층은 Rust (러닝코스트)</td>
-                <td>TS/React/Next 그대로 — <strong>Rust 세금 없음</strong></td>
-              </tr>
-              <tr>
-                <td>번들·메모리</td>
-                <td><span class="ck">✓</span> 가볍다</td>
-                <td>무겁다 (Chromium 동봉)</td>
-              </tr>
-              <tr class="chosen">
-                <td>성숙한 웹 제품 확장</td>
-                <td>그린필드엔 매력적</td>
-                <td>
-                  <strong
-                    >배포·서명·자동업데이트 생태계 성숙 → 리스크 낮음</strong
-                  >
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p><strong>그럼에도 지금 Joint엔 Electron</strong> — 이유 셋:</p>
-        <ul>
-          <li>
-            <strong>Chromium 렌더링 일관성</strong> — Tauri는 OS WebView라 macOS
-            WebKit 차이 실재. 크로스브라우저 맞춰둔 웹 이식 땐 이 변수 제거가
-            안전.
-          </li>
-          <li>
-            <strong>팀 스택 정합</strong> — TS·React·Next 그대로, Rust
-            러닝코스트 없음.
-          </li>
-          <li>
-            <strong>배포·서명·자동 업데이트 성숙도</strong> — 성숙한 제품을
-            실제로 굴리는 데 중요.
-          </li>
-        </ul>
-
-        <div class="note">
-          <span class="lbl">균형 잡힌 결론</span>
-          새 그린필드라면 <strong>Tauri v2도 충분히 후보</strong>. 다만
-          <strong>성숙한 웹 제품 확장 초기</strong>엔 렌더링 일관성·스택
-          정합·배포 성숙도 때문에 Electron이 리스크 낮음. 번들·모바일이
-          중요해지면 재검토.
-        </div>
       </section>
 
       <!-- 6 -->
@@ -1352,12 +1383,9 @@
         <h3>실제 구조를 확인하면 정해질 열린 질문들</h3>
         <ul>
           <li class="q">
-            <strong>실시간 경로</strong> — 지금 WS를 쓰는가, 아니면 이미 FCM
-            인프라가 있어 그걸 데스크톱에서도 활용하는 게 나은가?
-          </li>
-          <li class="q">
-            <strong>세션·인증</strong> — 원격 URL을 셸로 감쌀 때 로그인 세션을
-            어떻게 유지·보안하는가? (쿠키 파티션, SSO 흐름)
+            <strong>실시간 경로</strong> — 실제 서버의 실시간 전송이 무엇인가
+            (WS / SSE / socket.io 등)? 데스크톱 알림을 이 상시 연결에 얹는
+            방식이 그대로 맞는지 확인 필요.
           </li>
           <li class="q">
             <strong>배포 파이프라인</strong> — 기존 AWS · GitHub Actions에
