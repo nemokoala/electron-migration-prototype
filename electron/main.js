@@ -6,6 +6,7 @@ const {
   BrowserWindow,
   Notification,
   ipcMain,
+  Menu,
 } = require('electron')
 const { createTray, setTrayUnread } = require('./tray')
 
@@ -13,7 +14,17 @@ const { createTray, setTrayUnread } = require('./tray')
 const APP_URL = process.env.APP_URL || 'http://localhost:3010'
 
 // Windows: 네이티브 알림에 앱 이름/아이콘이 제대로 표시되려면 필수.
-app.setAppUserModelId('com.demo.chat')
+// 알림 헤더에는 이 AUMID와 매칭되는 시작 메뉴 바로가기의 표시 이름이 뜬다.
+// 개발 중(미패키징)에는 바로가기가 없어 이 문자열이 그대로 노출되므로,
+// 읽을 수 있는 이름을 쓴다.
+app.setAppUserModelId('Demo Chat')
+
+// Windows/Linux 기본 메뉴바(File/Edit/View/Window/Help)를 제거한다.
+// macOS는 앱 메뉴가 시스템 상단바에 붙고 이걸 없애면 단축키(복사·붙여넣기 등)까지
+// 죽어버리므로 그대로 둔다.
+if (process.platform !== 'darwin') {
+  Menu.setApplicationMenu(null)
+}
 
 let mainWindow = null
 
